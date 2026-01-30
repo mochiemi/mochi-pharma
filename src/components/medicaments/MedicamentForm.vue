@@ -81,14 +81,16 @@
           <i class="fas fa-times"></i>
         </span>
       </div>
+
+      <AlertBox v-if="errorMessage" type="danger">{{ errorMessage }}</AlertBox>
       
       <div class="form-actions">
-        <BaseButton type="submit" variant="primary" :disabled="loading">
+        <BaseButton type="submit" variant="primary" :loading="loading">
           <i class="fas fa-save"></i>
           {{ submitButtonText }}
         </BaseButton>
         
-        <BaseButton type="button" variant="outline" @click="$emit('cancel')">
+        <BaseButton type="button" variant="outline" @click="$emit('cancel')" :disabled="loading">
           <i class="fas fa-times"></i>
           {{ $t('common.cancel') }}
         </BaseButton>
@@ -98,6 +100,7 @@
           type="button" 
           variant="secondary" 
           @click="confirmDelete"
+          :disabled="loading"
         >
           <i class="fas fa-trash"></i>
           {{ $t('common.delete') }}
@@ -114,7 +117,9 @@ import BaseInput from '../common/BaseInput.vue'
 import BaseTextarea from '../common/BaseTextarea.vue'
 import BaseSelect from '../common/BaseSelect.vue'
 import BaseButton from '../common/BaseButton.vue'
+import AlertBox from '../common/AlertBox.vue'
 import { useI18n } from 'vue-i18n'
+import { medicamentService } from '@/services'
 
 export default {
   name: 'MedicamentForm',
@@ -123,7 +128,8 @@ export default {
     BaseInput,
     BaseTextarea,
     BaseSelect,
-    BaseButton
+    BaseButton,
+    AlertBox
   },
   props: {
     medicament: {
@@ -148,6 +154,7 @@ export default {
     const tagInput = ref('')
     const errors = ref({})
     const loading = ref(false)
+    const errorMessage = ref('')
     
     const drugClasses = ref([
       { value: 'antibiotic', label: t('medicament.classes.antibiotic') },
@@ -182,7 +189,6 @@ export default {
       isEditMode.value ? t('medicament.update') : t('medicament.save')
     )
     
-    // Preencher formulário se estiver editando
     watch(() => props.medicament, (newMedicament) => {
       if (newMedicament) {
         formData.value = {
@@ -211,6 +217,7 @@ export default {
       }
       tagInput.value = ''
       errors.value = {}
+      errorMessage.value = ''
     }
     
     const validateForm = () => {
@@ -231,21 +238,35 @@ export default {
       return Object.keys(errors.value).length === 0
     }
     
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
       if (!validateForm()) {
         return
       }
       
       loading.value = true
+      errorMessage.value = ''
       
-      // Simulate API call
-      setTimeout(() => {
-        emit('save', {
-          ...formData.value,
-          id: props.medicament?.id || Date.now()
-        })
+      try {
+        let result
+        
+        if (isEditMode.value) {
+          result = await medicamentService.update(props.medicament.id, formData.value)
+        } else {
+          result = await medicamentService.create(formData.value)
+        }
+        
+        if (result.error) {
+          throw result.error
+        }
+        
+        emit('save', result.data)
+        resetForm()
+      } catch (error) {
+        console.error('Erro ao salvar medicamento:', error)
+        errorMessage.value = error.message || 'Erro ao salvar medicamento. Tente novamente.'
+      } finally {
         loading.value = false
-      }, 500)
+      }
     }
     
     const addTag = () => {
@@ -271,6 +292,7 @@ export default {
       tagInput,
       errors,
       loading,
+      errorMessage,
       drugClasses,
       administrationRoutes,
       isEditMode,

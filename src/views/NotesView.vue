@@ -6,9 +6,40 @@
         <p>{{ $t('notes.subtitle') }}</p>
       </div>
       
-      <div class="notes-grid">
+      <!-- Busca -->
+      <div class="search-section">
+        <BaseInput
+          v-model="searchQuery"
+          placeholder="Buscar notas..."
+        >
+          <template #prefix>
+            <i class="fas fa-search"></i>
+          </template>
+        </BaseInput>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Carregando notas...</p>
+      </div>
+
+      <!-- Error -->
+      <AlertBox v-else-if="error" type="danger">{{ error }}</AlertBox>
+
+      <!-- Empty -->
+      <div v-else-if="filteredNotes.length === 0" class="empty-state">
+        <i class="fas fa-book-open empty-icon"></i>
+        <p>{{ searchQuery ? 'Nenhuma nota encontrada' : 'Nenhuma nota cadastrada' }}</p>
+        <BaseButton @click="createNewNote" variant="primary" v-if="!searchQuery">
+          <i class="fas fa-plus"></i> Criar primeira nota
+        </BaseButton>
+      </div>
+      
+      <!-- Grid de Notas -->
+      <div v-else class="notes-grid">
         <NoteCard
-          v-for="note in notes"
+          v-for="note in filteredNotes"
           :key="note.id"
           :note="note"
           @click="openNote(note)"
@@ -16,6 +47,7 @@
       </div>
       
       <BaseButton 
+        v-if="!loading && !error"
         class="add-note-btn" 
         variant="primary" 
         size="large"
@@ -28,79 +60,107 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseInput from '@/components/common/BaseInput.vue'
+import AlertBox from '@/components/common/AlertBox.vue'
 import NoteCard from '@/components/notes/NoteCard.vue'
+import { noteService } from '@/services'
+import { useNotification } from '@/composables/useNotification'
 
 export default {
   name: 'NotesView',
   components: {
     BaseButton,
+    BaseInput,
+    AlertBox,
     NoteCard
   },
   setup() {
     const router = useRouter()
+    const { error: showError } = useNotification()
     
-    const notes = ref([
-      {
-        id: 1,
-        title: 'Pharmacology Basics',
-        content: [
-          {
-            text: 'Pharmacology is the study of [[drug action]] on biological systems.',
-            list: [
-              'Pharmacokinetics: What the body does to the drug',
-              'Pharmacodynamics: What the drug does to the body',
-              'Therapeutic Index: Ratio between toxic and therapeutic dose'
-            ],
-            listType: 'unordered'
-          }
-        ],
-        tags: ['Basics', 'Important'],
-        createdAt: '2023-10-15',
-        updatedAt: '2023-10-15'
-      },
-      {
-        id: 2,
-        title: 'Drug Administration Routes',
-        content: [
-          {
-            list: [
-              'Oral (most common)',
-              'Intravenous (fastest action)',
-              'Intramuscular',
-              'Subcutaneous',
-              'Topical',
-              'Inhalational'
-            ],
-            listType: 'ordered'
-          }
-        ],
-        tags: ['Administration', 'Routes'],
-        createdAt: '2023-10-20',
-        updatedAt: '2023-10-20'
+    const notes = ref([])
+    const loading = ref(false)
+    const error = ref('')
+    const searchQuery = ref('')
+
+    // Computed para filtrar notas
+    const filteredNotes = computed(() => {
+      if (!searchQuery.value) return notes.value
+      
+      const query = searchQuery.value.toLowerCase()
+      return notes.value.filter(n => 
+        n.title?.toLowerCase().includes(query) ||
+        n.tags?.some(tag => tag.toLowerCase().includes(query))
+      )
+    })
+
+    // Carregar notas do Supabase
+    const loadNotes = async () => {
+      loading.value = true
+      error.value = ''
+      
+      try {
+        const { data, error: supabaseError } = await noteService.getAll({
+          orderBy: 'updated_at',
+          ascending: false
+        })
+        
+        if (supabaseError) {
+          throw supabaseError
+        }
+        
+        notes.value = data || []
+      } catch (err) {
+        console.error('Erro ao carregar notas:', err)
+        error.value = 'Erro ao carregar notas. Verifique sua conexão.'
+        showError('Não foi possível carregar as notas', 'Erro')
+      } finally {
+        loading.value = false
       }
-    ])
+    }
+
+    onMounted(() => {
+      loadNotes()
+    })
     
     const openNote = (note) => {
       router.push({ name: 'note-detail', params: { id: note.id } })
     }
     
-    const createNewNote = () => {
-      const newNote = {
-        id: Date.now(),
-        title: '',
-        content: [],
-        tags: [],
-        createdAt: new Date().toISOString().split('T')[0]
+    const createNewNote = async () => {
+      try {
+        const newNote = {
+          title: 'Nova Nota',
+          content: [{ text: '', list: [], listType: 'unordered' }],
+          tags: [],
+          is_favorite: false
+        }
+        
+        const { data, error: createError } = await noteService.create(newNote)
+        
+        if (createError) {
+          throw createError
+        }
+        
+        if (data) {
+          notes.value.unshift(data)
+          openNote(data)
+        }
+      } catch (err) {
+        console.error('Erro ao criar nota:', err)
+        showError('Não foi possível criar a nota', 'Erro')
       }
-      notes.value.push(newNote)
-      openNote(newNote)
     }
     
     return {
       notes,
+      loading,
+      error,
+      searchQuery,
+      filteredNotes,
       openNote,
       createNewNote
     }
@@ -125,6 +185,36 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 15px;
+}
+
+.search-section {
+  margin-bottom: 25px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.loading-state i {
+  font-size: 32px;
+  margin-bottom: 15px;
+  display: block;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  color: var(--border);
+  margin-bottom: 20px;
 }
 
 .notes-grid {

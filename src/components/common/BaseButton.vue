@@ -2,10 +2,11 @@
   <button
     class="base-button"
     :class="buttonClasses"
-    :disabled="disabled"
+    :disabled="disabled || loading"
     @click="$emit('click', $event)"
   >
-    <i v-if="icon" :class="icon" class="button-icon"></i>
+    <i v-if="loading" class="fas fa-spinner fa-spin button-icon"></i>
+    <i v-else-if="icon" :class="icon" class="button-icon"></i>
     <span v-if="$slots.default"><slot></slot></span>
     <span v-else>{{ label }}</span>
   </button>
@@ -34,6 +35,10 @@ export default {
       default: ''
     },
     disabled: {
+      type: Boolean,
+      default: false
+    },
+    loading: {
       type: Boolean,
       default: false
     },

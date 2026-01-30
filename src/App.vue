@@ -9,18 +9,21 @@
       </router-view>
     </main>
     <AppFooter />
+    <NotificationContainer />
   </div>
 </template>
 
 <script>
 import AppHeader from './components/layout/AppHeader.vue'
 import AppFooter from './components/layout/AppFooter.vue'
+import NotificationContainer from './components/common/NotificationContainer.vue'
 
 export default {
   name: 'App',
   components: {
     AppHeader,
-    AppFooter
+    AppFooter,
+    NotificationContainer
   }
 }
 </script>
