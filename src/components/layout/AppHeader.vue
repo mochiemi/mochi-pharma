@@ -8,10 +8,10 @@
           </div>
           <h1>{{ $t('app.name') }}</h1>
         </div>
-        
+
         <div class="header-actions">
           <ThemeToggle />
-          
+
           <select v-model="currentLocale" @change="changeLocale" class="locale-select">
             <option value="en">EN</option>
             <option value="pt">PT</option>
@@ -19,11 +19,11 @@
           </select>
         </div>
       </div>
-      
+
       <nav class="main-nav">
-        <router-link 
-          v-for="route in navRoutes" 
-          :key="route.path" 
+        <router-link
+          v-for="route in navRoutes"
+          :key="route.path"
           :to="route.path"
           class="nav-link"
         >
@@ -46,7 +46,7 @@ export default {
   },
   setup() {
     const { locale } = useI18n()
-    
+
     const navRoutes = [
       { path: '/', name: 'home', icon: 'fas fa-home' },
       { path: '/medicaments', name: 'medicaments', icon: 'fas fa-capsules' },
@@ -54,7 +54,7 @@ export default {
       { path: '/articles', name: 'articles', icon: 'fas fa-newspaper' },
       { path: '/references', name: 'references', icon: 'fas fa-heartbeat' }
     ]
-    
+
     return {
       navRoutes,
       locale
@@ -163,7 +163,7 @@ export default {
     flex-direction: column;
     gap: 20px;
   }
-  
+
   .main-nav {
     justify-content: flex-start;
   }
