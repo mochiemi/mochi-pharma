@@ -1,5 +1,5 @@
 export { supabase } from './supabaseClient'
-export { CrudService } from './crudService'
+export { crudService } from './crudService'
 export { medicamentService } from './medicamentService'
 export { noteService } from './noteService'
 
